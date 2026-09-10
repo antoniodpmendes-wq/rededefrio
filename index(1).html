@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Notificação de incidente da rede de frio</title>
+<style>
+:root{
+  --paper:#F4F7F8;
+  --surface:#FFFFFF;
+  --ink:#16242E;
+  --muted:#53646F;
+  --line:#D3DDE2;
+  --line-strong:#AFC0C8;
+  --accent:#0B6A86;
+  --accent-dark:#084F64;
+  --accent-pale:#E4F1F5;
+  --safe:#D9EEE7;
+  --safe-ink:#2B6B58;
+  --freeze:#2359A8;
+  --heat:#A8560A;
+  --error:#B42318;
+  --r:6px;
+  --display:"Bahnschrift","DIN Alternate","DIN Next","Segoe UI",system-ui,sans-serif;
+  --body:"Segoe UI",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box}
+[hidden]{display:none!important}
+html{background:var(--paper);-webkit-text-size-adjust:100%}
+body{margin:0;color:var(--ink);font:16px/1.5 var(--body)}
+.pagina{max-width:800px;margin:0 auto;padding:48px 24px 96px}
+
+/* Cabeçalho */
+.inst{margin:0 0 20px;font-family:var(--display);font-size:15px;line-height:1.35;color:var(--muted)}
+h1{margin:0 0 14px;font-family:var(--display);font-weight:600;font-size:clamp(28px,5vw,38px);line-height:1.08;letter-spacing:-.01em;max-width:22ch;text-wrap:balance}
+.intro{margin:0 0 24px;max-width:62ch;color:var(--muted)}
+.quarentena{margin:0 0 44px;padding:14px 18px;background:var(--surface);border-left:4px solid var(--accent);border-radius:0 var(--r) var(--r) 0;max-width:66ch}
+.aviso-config{margin:0 0 28px;padding:12px 16px;background:#FFF4E5;border:1px solid #F1C27D;border-radius:var(--r);color:#6B3E00;font-size:14.5px}
+.aviso-config code{font-family:inherit;font-weight:600}
+
+/* Secções */
+fieldset{margin:0;padding:32px 0 0;border:0;border-top:1px solid var(--line);min-width:0}
+fieldset + fieldset{margin-top:44px}
+legend{float:left;width:100%;padding:0;margin:0 0 20px;font-family:var(--display);font-weight:600;font-size:23px;line-height:1.2}
+legend + *{clear:both}
+.opcional{font-family:var(--body);font-weight:400;font-size:15px;color:var(--muted)}
+
+/* Campos */
+.grelha{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px 20px}
+.largo{grid-column:1/-1}
+.campo{display:flex;flex-direction:column;gap:6px;min-width:0}
+.rotulo{font-weight:600;font-size:15px}
+.ajuda{margin:0;font-size:13.5px;line-height:1.4;color:var(--muted)}
+input[type=text],input[type=tel],input[type=number],input[type=datetime-local],select,textarea{
+  width:100%;min-height:42px;padding:9px 11px;font:inherit;color:inherit;
+  background:var(--surface);border:1px solid var(--line-strong);border-radius:var(--r)}
+textarea{min-height:100px;resize:vertical}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(11,106,134,.2)}
+.tentou :invalid{border-color:var(--error);background:#FFF8F7}
+.num{font-variant-numeric:tabular-nums}
+
+/* Opções em comprimido */
+.opcoes{display:flex;flex-wrap:wrap;gap:8px}
+.pill{display:inline-flex;align-items:center;gap:8px;padding:9px 14px;font-size:15px;background:var(--surface);border:1px solid var(--line-strong);border-radius:999px;cursor:pointer}
+.pill input{margin:0;accent-color:var(--accent)}
+.pill:has(input:checked){border-color:var(--accent);background:var(--accent-pale)}
+.tentou .opcoes:has(input:invalid) .pill{border-color:var(--error)}
+
+/* Escala de temperatura */
+.termo{margin:6px 0 0}
+.escala{position:relative;height:40px;margin:36px 0 52px}
+.zona{position:absolute;top:0;bottom:0}
+.z-gelo{background:repeating-linear-gradient(135deg,#D9E4F5 0 5px,#EAF0F9 5px 10px);border-radius:4px 0 0 4px}
+.z-frio{background:#EAF0F9}
+.z-ok{background:var(--safe)}
+.z-calor{background:linear-gradient(90deg,#FDF4E7,#F6DAB5);border-radius:0 4px 4px 0}
+.tick{position:absolute;top:100%;margin-top:6px;transform:translateX(-50%);font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.tick::before{content:"";position:absolute;left:50%;bottom:100%;width:1px;height:6px;background:var(--line-strong)}
+.faixa{position:absolute;top:15px;height:10px;background:rgba(22,36,46,.22);border-radius:5px;transition:left .3s ease,width .3s ease}
+.marca{position:absolute;top:-6px;bottom:-6px;width:3px;margin-left:-1.5px;border-radius:2px;transition:left .3s ease}
+.marca b{position:absolute;left:0;white-space:nowrap;font-family:var(--display);font-size:15px;font-weight:600;font-variant-numeric:tabular-nums}
+.m-max b{bottom:100%;margin-bottom:4px}
+.m-min b{top:calc(100% + 18px)}
+.m-min{background:var(--freeze)} .m-min b{color:var(--freeze)}
+.m-max{background:var(--heat)} .m-max b{color:var(--heat)}
+.leitura{margin:0;min-height:1.5em;font-size:14.5px;color:var(--muted)}
+.leitura .gelo{color:var(--freeze);font-weight:600}
+.leitura .calor{color:var(--heat);font-weight:600}
+.leitura .erro{color:var(--error);font-weight:600}
+
+/* Vacinas */
+.sub{margin:0 0 16px}
+.vac-row{display:grid;grid-template-columns:24px minmax(0,1.8fr) minmax(0,1.15fr) minmax(0,1fr) minmax(0,.7fr) minmax(0,1.6fr) auto;gap:10px;align-items:start;padding:16px 0;border-top:1px solid var(--line)}
+.vac-row:first-child{padding-top:0;border-top:0}
+.vac-row .campo{gap:4px}
+.vac-row .rotulo{font-size:13px;white-space:nowrap}
+.vac-row input,.vac-row select{padding-left:9px;padding-right:9px}
+.vac-num{padding-top:30px;font-family:var(--display);font-size:22px;line-height:1;color:var(--accent);font-variant-numeric:tabular-nums}
+.v-outro{margin-top:6px}
+.remover{align-self:start;min-height:42px;margin-top:26px;padding:0 6px;font:inherit;font-size:14px;color:var(--muted);background:transparent;border:1px solid transparent;border-radius:var(--r);cursor:pointer}
+.remover:hover{color:var(--error);border-color:var(--line)}
+
+/* Botões */
+.btn{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 18px;font:inherit;font-weight:600;color:var(--accent);background:var(--surface);border:1px solid var(--accent);border-radius:var(--r);cursor:pointer}
+.btn:hover{background:var(--accent-pale)}
+.btn-primario{min-height:52px;padding:0 26px;font-size:17px;color:#fff;background:var(--accent)}
+.btn-primario:hover{background:var(--accent-dark)}
+.btn-discreto{color:var(--muted);border-color:var(--line-strong)}
+.btn:focus-visible,.remover:focus-visible,.pill input:focus-visible{outline:3px solid #7DB9CB;outline-offset:2px}
+.adicionar{margin-top:16px}
+.envio{margin-top:48px;padding-top:28px;border-top:1px solid var(--line)}
+.envio p{margin:0 0 16px;max-width:62ch;color:var(--muted)}
+
+/* Resultado */
+.resultado{margin-top:40px;padding:28px;background:var(--surface);border:1px solid var(--line);border-top:4px solid var(--accent);border-radius:var(--r)}
+.resultado:focus{outline:none}
+.resultado h2{margin:0 0 6px;font-family:var(--display);font-size:26px;font-weight:600;line-height:1.15}
+.resultado > p{margin:0 0 16px}
+.passos{margin:0 0 22px;padding-left:22px}
+.passos li{margin:7px 0}
+.passos li.feito{color:var(--safe-ink)}
+.acoes{display:flex;flex-wrap:wrap;gap:10px}
+.estado{min-height:1.5em;margin:10px 0 0;font-size:14px;color:var(--safe-ink)}
+.estado.falha{color:var(--error)}
+.nota{margin:14px 0 0;font-size:14px;color:var(--muted)}
+.nota strong{color:var(--ink);word-break:break-word}
+.preview-titulo{margin:30px 0 10px;font-family:var(--display);font-size:17px;font-weight:600}
+.preview{padding:16px;overflow-x:auto;background:#fff;border:1px dashed var(--line-strong);border-radius:var(--r)}
+.nova{margin-top:24px}
+footer{margin-top:56px;font-size:13px;color:var(--muted)}
+.vh{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+@media (max-width:760px){
+  .vac-row{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .vac-num{grid-column:1/-1;padding-top:0}
+  .vac-produto{grid-column:1/-1}
+  .remover{grid-column:1/-1;justify-self:start;margin-top:0}
+}
+@media (max-width:640px){
+  .pagina{padding:28px 16px 72px}
+  .grelha{grid-template-columns:1fr}
+  .resultado{padding:20px 16px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
+</style>
+</head>
+<body>
+<main class="pagina">
+
+  <div id="aviso-config" class="aviso-config" hidden>
+    Falta configurar o endereço de destino. Edite <code>emailDestino</code> no bloco CONFIG, no fim deste ficheiro.
+  </div>
+
+  <header>
+    <p class="inst"><span id="inst-nome"></span><br><span id="inst-servico"></span></p>
+    <h1>Notificação de incidente da rede de frio</h1>
+    <p class="intro">Preencha os dados do incidente. No fim, o formulário prepara um e-mail para os Serviços Farmacêuticos com o resumo da notificação.</p>
+    <p class="quarentena"><strong>Antes de notificar:</strong> coloque as vacinas envolvidas num frigorífico a 2–8 °C, identificadas com «Não utilizar» e separadas das restantes, até receber o parecer dos Serviços Farmacêuticos.</p>
+  </header>
+
+  <form id="form" novalidate>
+
+    <fieldset>
+      <legend>Unidade e notificador</legend>
+      <div class="grelha">
+        <div class="campo largo">
+          <label class="rotulo" for="unidade">Unidade funcional ou ponto de vacinação</label>
+          <input type="text" id="unidade" list="lista-unidades" required autocomplete="off">
+          <datalist id="lista-unidades"></datalist>
+        </div>
+        <div class="campo">
+          <label class="rotulo" for="nome">Nome de quem notifica</label>
+          <input type="text" id="nome" required autocomplete="name">
+        </div>
+        <div class="campo">
+          <label class="rotulo" for="telefone">Contacto telefónico</label>
+          <input type="tel" id="telefone" required autocomplete="tel">
+        </div>
+        <div class="campo">
+          <label class="rotulo" for="equipamento">Equipamento afetado</label>
+          <input type="text" id="equipamento" required aria-describedby="aj-equip" autocomplete="off">
+          <p class="ajuda" id="aj-equip">Por exemplo: frigorífico 2 da sala de vacinação.</p>
+        </div>
+        <div class="campo">
+          <label class="rotulo" for="sensor">Sensor ViGIE <span class="opcional">(opcional)</span></label>
+          <input type="text" id="sensor" autocomplete="off">
+        </div>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>O incidente</legend>
+      <div class="grelha">
+        <div class="campo largo">
+          <span class="rotulo" id="rot-tipo">Tipo de incidente</span>
+          <div class="opcoes" role="radiogroup" aria-labelledby="rot-tipo">
+            <label class="pill"><input type="radio" name="tipo" value="Temperatura acima de 8 °C" required> Acima de 8 °C</label>
+            <label class="pill"><input type="radio" name="tipo" value="Temperatura abaixo de 2 °C"> Abaixo de 2 °C</label>
+            <label class="pill"><input type="radio" name="tipo" value="Acima de 8 °C e abaixo de 2 °C"> Acima e abaixo</label>
+            <label class="pill"><input type="radio" name="tipo" value="Falha de monitorização (sem registo)" data-sem-registo> Falha de monitorização</label>
+          </div>
+        </div>
+
+        <div class="campo">
+          <label class="rotulo" for="inicio">Início do período afetado</label>
+          <input type="datetime-local" id="inicio" class="num" required>
+        </div>
+        <div class="campo">
+          <label class="rotulo" for="fim">Fim do período afetado</label>
+          <input type="datetime-local" id="fim" class="num" required>
+        </div>
+
+        <div class="campo">
+          <label class="rotulo" for="tmin">Temperatura mínima (°C) <span class="opcional sr-opc" hidden>(se houver registo)</span></label>
+          <input type="text" id="tmin" class="num" required autocomplete="off" pattern="-?\d{1,2}([.,]\d{1,2})?" title="Indique um número, por exemplo -4,5.">
+        </div>
+        <div class="campo">
+          <label class="rotulo" for="tmax">Temperatura máxima (°C) <span class="opcional sr-opc" hidden>(se houver registo)</span></label>
+          <input type="text" id="tmax" class="num" required autocomplete="off" pattern="-?\d{1,2}([.,]\d{1,2})?" title="Indique um número, por exemplo 12,3.">
+        </div>
+
+        <div class="termo largo" aria-hidden="true">
+          <div class="escala" id="escala"></div>
+        </div>
+        <p class="leitura largo" id="leitura" aria-live="polite"></p>
+
+        <div class="campo">
+          <label class="rotulo" for="duracao">Duração total fora de 2–8 °C <span class="opcional sr-opc" hidden>(se houver registo)</span></label>
+          <input type="text" id="duracao" class="num" required placeholder="hh:mm" autocomplete="off" pattern="\d{1,4}:[0-5]\d" title="Use o formato hh:mm, por exemplo 05:30." aria-describedby="aj-dur">
+          <p class="ajuda" id="aj-dur">Calculada a partir do início e do fim. Corrija se a excursão foi intermitente.</p>
+        </div>
+        <div class="campo">
+          <label class="rotulo" for="causa">Causa provável</label>
+          <select id="causa" required>
+            <option value="">Escolha a causa</option>
+            <option>Falha de energia</option>
+            <option>Avaria do equipamento</option>
+            <option>Porta mal fechada</option>
+            <option>Vacinas fora do frigorífico</option>
+            <option>Falha do sensor ou da monitorização</option>
+            <option>Desconhecida</option>
+            <option value="__outra">Outra</option>
+          </select>
+        </div>
+        <div class="campo largo" id="bloco-causa-outra" hidden>
+          <label class="rotulo" for="causa-outra">Qual foi a causa?</label>
+          <input type="text" id="causa-outra" autocomplete="off">
+        </div>
+
+        <div class="campo largo">
+          <label class="rotulo" for="descricao">Descrição do incidente</label>
+          <textarea id="descricao" required aria-describedby="aj-desc"></textarea>
+          <p class="ajuda" id="aj-desc">O que aconteceu, como foi detetado e o que foi feito.</p>
+        </div>
+
+        <div class="campo largo">
+          <span class="rotulo" id="rot-quar">As vacinas foram colocadas em quarentena a 2–8 °C, identificadas e separadas?</span>
+          <div class="opcoes" role="radiogroup" aria-labelledby="rot-quar">
+            <label class="pill"><input type="radio" name="quarentena" value="Sim" required> Sim</label>
+            <label class="pill"><input type="radio" name="quarentena" value="Não"> Não</label>
+          </div>
+          <p class="ajuda" id="aviso-quar" hidden>Indique nas observações onde estão as vacinas e porque não foi possível.</p>
+        </div>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Vacinas envolvidas</legend>
+      <p class="ajuda sub">Uma linha por lote.</p>
+      <div id="vacinas"></div>
+      <button type="button" class="btn adicionar" id="btn-adicionar">Adicionar vacina</button>
+    </fieldset>
+
+    <fieldset>
+      <legend>Observações <span class="opcional" id="obs-opc">(opcional)</span></legend>
+      <div class="campo">
+        <label class="vh" for="observacoes">Observações</label>
+        <textarea id="observacoes"></textarea>
+      </div>
+    </fieldset>
+
+    <div class="envio">
+      <p>Os registos de temperatura do ViGIE são anexados ao e-mail no passo seguinte.</p>
+      <button type="submit" class="btn btn-primario">Preparar e-mail de notificação</button>
+    </div>
+  </form>
+
+  <section id="resultado" class="resultado" hidden tabindex="-1" aria-labelledby="res-titulo">
+    <h2 id="res-titulo">Falta enviar o e-mail</h2>
+    <p>A notificação só chega aos Serviços Farmacêuticos depois de enviar o e-mail.</p>
+    <ol class="passos">
+      <li id="passo-copia">O resumo foi copiado.</li>
+      <li>No e-mail que se abriu, cole o resumo no corpo da mensagem (Ctrl+V).</li>
+      <li>Anexe os registos de temperatura do ViGIE, desde o início do incidente até hoje.</li>
+      <li>Envie o e-mail.</li>
+    </ol>
+    <div class="acoes">
+      <button type="button" class="btn" id="btn-copiar">Copiar resumo</button>
+      <button type="button" class="btn" id="btn-abrir">Abrir e-mail</button>
+      <button type="button" class="btn" id="btn-assunto">Copiar assunto</button>
+    </div>
+    <p class="estado" id="estado" role="status"></p>
+    <p class="nota">Se o e-mail não abriu, escreva para <strong id="res-email"></strong> com o assunto <strong id="res-assunto"></strong>.</p>
+    <p class="preview-titulo">Pré-visualização do resumo</p>
+    <div class="preview" id="preview"></div>
+    <button type="button" class="btn btn-discreto nova" id="btn-nova">Nova notificação</button>
+  </section>
+
+  <footer>Circuito de notificação previsto na Orientação da DGS n.º 023/2017.</footer>
+</main>
+
+<script>
+/* ==================================================================
+   CONFIG: editar antes de publicar
+   ================================================================== */
+const CONFIG = {
+  // Endereço que recebe as notificações (vários endereços: separar por vírgula)
+  emailDestino: "endereco@exemplo.pt",
+  // Endereços em cópia (opcional)
+  emailCc: "",
+  instituicao: "ULS Santo António",
+  servico: "Serviços Farmacêuticos",
+  // Sugestões para o campo "Unidade" (opcional), por exemplo: ["USF Exemplo", "UCSP Exemplo"]
+  unidades: [],
+  // O assunto leva [CONGELAÇÃO] quando a temperatura mínima é igual ou inferior a este valor (°C)
+  limiarCongelacao: 0,
+  // Produtos disponíveis na lista, por grupo
+  vacinas: [
+    { grupo: "Td", nomes: ["diTeBooster", "DT Vax Adulto"] },
+    { grupo: "Tdpa", nomes: ["Boostrix", "Triaxis"] },
+    { grupo: "Tetravalente (DTPa-VIP)", nomes: ["Infanrix Tetra", "Tetravac"] },
+    { grupo: "Pentavalente (DTPa-VIP-Hib)", nomes: ["Infanrix IPV+Hib", "Pentavac"] },
+    { grupo: "Hexavalente (DTPa-VIP-Hib-VHB)", nomes: ["Hexyon", "Infanrix hexa", "Vaxelis"] },
+    { grupo: "Poliomielite (VIP)", nomes: ["Imovax Polio"] },
+    { grupo: "Hepatite B", nomes: ["Engerix B 10 µg", "Engerix B 20 µg"] },
+    { grupo: "Haemophilus influenzae b", nomes: ["Hiberix"] },
+    { grupo: "Pneumocócica", nomes: ["Prevenar 13", "Prevenar 20", "Pneumovax 23"] },
+    { grupo: "Meningocócica B", nomes: ["Bexsero"] },
+    { grupo: "Meningocócica C", nomes: ["Menjugate", "NeisVac-C"] },
+    { grupo: "Meningocócica ACWY", nomes: ["Menveo", "Nimenrix"] },
+    { grupo: "Sarampo, parotidite e rubéola", nomes: ["M-M-RVaxPro"] },
+    { grupo: "HPV", nomes: ["Gardasil 9"] },
+    { grupo: "Rotavírus", nomes: ["Rotarix", "RotaTeq"] },
+    { grupo: "Hepatite A", nomes: ["Havrix 720", "Havrix 1440"] },
+    { grupo: "Gripe", nomes: ["Fluarix", "Influvac", "Vaxigrip"] },
+    { grupo: "Febre tifoide", nomes: ["Typhim Vi"] },
+    { grupo: "Febre amarela", nomes: ["Stamaril"] },
+    { grupo: "Tuberculose", nomes: ["BCG"] },
+    { grupo: "Raiva", nomes: ["Rabipur"] },
+    { grupo: "Imunoglobulina anti-D", nomes: ["Rhophylac"] }
+  ]
+};
+
+(function () {
+  "use strict";
+
+  const $ = (s, c) => (c || document).querySelector(s);
+  const $$ = (s, c) => Array.from((c || document).querySelectorAll(s));
+  const form = $("#form");
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const br = s => s.replace(/\r?\n/g, "<br>");
+  const p2 = n => String(n).padStart(2, "0");
+
+  let sujo = false;
+  let suprimirSaida = false;
+  let ultimo = null;
+
+  /* ---------- Utilitários ---------- */
+  function numero(s) {
+    const v = String(s || "").trim().replace(",", ".");
+    return /^-?\d+(\.\d+)?$/.test(v) ? parseFloat(v) : NaN;
+  }
+  function fmtTemp(n) {
+    return n.toLocaleString("pt-PT", { maximumFractionDigits: 2 }) + "\u00A0°C";
+  }
+  function fmtDataHora(v) {
+    if (!v) return "";
+    const [d, h] = v.split("T");
+    const [a, m, dia] = d.split("-");
+    return `${dia}/${m}/${a} ${(h || "").slice(0, 5)}`.trim();
+  }
+  function minutosEntre(a, b) {
+    const da = new Date(a), db = new Date(b);
+    if (isNaN(da) || isNaN(db)) return NaN;
+    return Math.round((db - da) / 60000);
+  }
+  function fmtHHMM(min) {
+    return p2(Math.floor(min / 60)) + ":" + p2(min % 60);
+  }
+
+  /* ---------- Configuração inicial ---------- */
+  $("#inst-nome").textContent = CONFIG.instituicao;
+  $("#inst-servico").textContent = CONFIG.servico;
+  $("#aviso-config").hidden = !/exemplo/i.test(CONFIG.emailDestino);
+  $("#lista-unidades").innerHTML = CONFIG.unidades.map(u => `<option value="${esc(u)}">`).join("");
+
+  /* ---------- Escala de temperatura ---------- */
+  const DMIN = -10, DMAX = 30;
+  const pos = t => Math.max(0, Math.min(100, (t - DMIN) / (DMAX - DMIN) * 100));
+
+  function montarEscala() {
+    const zona = (cls, a, b, txt) => `<div class="zona ${cls}" style="left:${pos(a)}%;width:${pos(b) - pos(a)}%">${txt || ""}</div>`;
+    $("#escala").innerHTML =
+      zona("z-gelo", DMIN, 0) + zona("z-frio", 0, 2) + zona("z-ok", 2, 8) + zona("z-calor", 8, DMAX) +
+      [-10, 0, 2, 8, 20, 30].map(t => `<span class="tick" style="left:${pos(t)}%">${String(t).replace("-", "−")}</span>`).join("") +
+      '<div class="faixa" id="faixa" hidden></div>' +
+      '<div class="marca m-min" id="m-min" hidden><b></b></div>' +
+      '<div class="marca m-max" id="m-max" hidden><b></b></div>';
+  }
+
+  function atualizarEscala() {
+    const tmin = numero($("#tmin").value), tmax = numero($("#tmax").value);
+    const mMin = $("#m-min"), mMax = $("#m-max"), faixa = $("#faixa");
+    const largura = $("#escala").clientWidth;
+    [[mMin, tmin, "mín. "], [mMax, tmax, "máx. "]].forEach(([m, t, pre]) => {
+      m.hidden = isNaN(t);
+      if (isNaN(t)) return;
+      m.style.left = pos(t) + "%";
+      const b = m.querySelector("b");
+      b.textContent = pre + fmtTemp(t);
+      // centra o rótulo no marcador sem sair dos limites da escala
+      const x = pos(t) / 100 * largura, w = b.offsetWidth;
+      const inicio = Math.max(0, Math.min(largura - w, x - w / 2));
+      b.style.left = (inicio - x) + "px";
+    });
+    if (!isNaN(tmin) && !isNaN(tmax)) {
+      const a = pos(Math.min(tmin, tmax)), b = pos(Math.max(tmin, tmax));
+      faixa.hidden = false; faixa.style.left = a + "%"; faixa.style.width = (b - a) + "%";
+    } else faixa.hidden = true;
+
+    let partes = [];
+    if (!isNaN(tmin)) {
+      if (tmin <= CONFIG.limiarCongelacao) partes.push(`<span class="gelo">Mínima de ${fmtTemp(tmin)}: igual ou abaixo de ${fmtTemp(CONFIG.limiarCongelacao)}.</span>`);
+      else if (tmin < 2) partes.push(`<span class="gelo">Mínima de ${fmtTemp(tmin)}: abaixo de 2 °C.</span>`);
+    }
+    if (!isNaN(tmax) && tmax > 8) partes.push(`<span class="calor">Máxima de ${fmtTemp(tmax)}: acima de 8 °C.</span>`);
+    if (!isNaN(tmin) && !isNaN(tmax) && tmin > tmax) partes = ['<span class="erro">A mínima é superior à máxima. Verifique os valores.</span>'];
+    if (!partes.length) {
+      partes.push(!isNaN(tmin) && !isNaN(tmax)
+        ? "Temperaturas dentro do intervalo de 2–8 °C."
+        : "Introduza as temperaturas para as comparar com o intervalo de 2–8 °C.");
+    }
+    $("#leitura").innerHTML = partes.join(" ");
+  }
+
+  /* ---------- Duração automática ---------- */
+  function autoDuracao() {
+    const d = $("#duracao");
+    if (d.dataset.manual === "1") return;
+    const m = minutosEntre($("#inicio").value, $("#fim").value);
+    d.value = m > 0 ? fmtHHMM(m) : "";
+  }
+
+  /* ---------- Regras condicionais ---------- */
+  function aplicarTipo() {
+    const semRegisto = !!$('input[name="tipo"][data-sem-registo]:checked');
+    ["tmin", "tmax", "duracao"].forEach(id => { $("#" + id).required = !semRegisto; });
+    $$(".sr-opc").forEach(s => { s.hidden = !semRegisto; });
+    $("#aj-dur").textContent = semRegisto
+      ? "Sem registo de temperatura, deixe em branco se não for possível estimar."
+      : "Calculada a partir do início e do fim. Corrija se a excursão foi intermitente.";
+  }
+  function aplicarCausa() {
+    const outra = $("#causa").value === "__outra";
+    $("#bloco-causa-outra").hidden = !outra;
+    $("#causa-outra").required = outra;
+    if (!outra) $("#causa-outra").value = "";
+  }
+  function aplicarQuarentena() {
+    const nao = !!$('input[name="quarentena"][value="Não"]:checked');
+    $("#aviso-quar").hidden = !nao;
+    $("#observacoes").required = nao;
+    $("#obs-opc").hidden = nao;
+  }
+
+  /* ---------- Linhas de vacinas ---------- */
+  const OPCOES =
+    '<option value="">Escolha a vacina</option>' +
+    CONFIG.vacinas.map(g =>
+      `<optgroup label="${esc(g.grupo)}">` + g.nomes.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join("") + "</optgroup>"
+    ).join("") +
+    '<optgroup label="Outro"><option value="__outro">Outro produto</option></optgroup>';
+
+  let seq = 0;
+  const contentor = $("#vacinas");
+
+  function adicionarLinha(focar) {
+    seq++;
+    const n = seq;
+    const row = document.createElement("div");
+    row.className = "vac-row";
+    row.setAttribute("role", "group");
+    row.innerHTML = `
+      <div class="vac-num" aria-hidden="true"></div>
+      <div class="campo vac-produto">
+        <label class="rotulo" for="v${n}-prod">Vacina</label>
+        <select id="v${n}-prod" class="v-prod" required>${OPCOES}</select>
+        <input type="text" class="v-outro" aria-label="Nome do outro produto" placeholder="Nome do produto" autocomplete="off" hidden>
+      </div>
+      <div class="campo">
+        <label class="rotulo" for="v${n}-lote">Lote</label>
+        <input type="text" id="v${n}-lote" class="v-lote" required autocomplete="off">
+      </div>
+      <div class="campo">
+        <label class="rotulo" for="v${n}-val">Validade</label>
+        <input type="text" id="v${n}-val" class="v-val num" required placeholder="mm/aaaa" autocomplete="off"
+               pattern="(0[1-9]|1[0-2])/\\d{4}" title="Use o formato mm/aaaa, por exemplo 03/2027.">
+      </div>
+      <div class="campo">
+        <label class="rotulo" for="v${n}-doses">Doses</label>
+        <input type="number" id="v${n}-doses" class="v-doses num" required min="1" step="1">
+      </div>
+      <div class="campo">
+        <label class="rotulo" for="v${n}-queb">Quebras anteriores</label>
+        <select id="v${n}-queb" class="v-queb" required>
+          <option value="">Escolha</option><option>Não</option><option>Sim</option><option>Desconhecido</option>
+        </select>
+      </div>
+      <button type="button" class="remover">Remover</button>`;
+    contentor.appendChild(row);
+    renumerar();
+    if (focar) $(".v-prod", row).focus();
+  }
+
+  function renumerar() {
+    const linhas = $$(".vac-row", contentor);
+    linhas.forEach((r, i) => {
+      $(".vac-num", r).textContent = i + 1;
+      r.setAttribute("aria-label", "Vacina " + (i + 1));
+      const b = $(".remover", r);
+      b.hidden = linhas.length === 1;
+      b.setAttribute("aria-label", "Remover vacina " + (i + 1));
+    });
+  }
+
+  function normalizarValidade(el) {
+    const m = el.value.trim().match(/^(\d{1,2})\s*[\/.\-]\s*(\d{2}|\d{4})$/);
+    if (!m) return;
+    const mes = parseInt(m[1], 10);
+    if (mes < 1 || mes > 12) return;
+    const ano = m[2].length === 2 ? "20" + m[2] : m[2];
+    el.value = p2(mes) + "/" + ano;
+  }
+
+  contentor.addEventListener("change", e => {
+    const t = e.target;
+    if (t.classList.contains("v-prod")) {
+      const outro = $(".v-outro", t.parentElement);
+      const sim = t.value === "__outro";
+      outro.hidden = !sim; outro.required = sim;
+      if (sim) outro.focus(); else outro.value = "";
+    }
+    if (t.classList.contains("v-val")) normalizarValidade(t);
+  });
+  contentor.addEventListener("click", e => {
+    const b = e.target.closest(".remover");
+    if (!b) return;
+    b.closest(".vac-row").remove();
+    renumerar();
+    const ult = $(".vac-row:last-child .v-prod", contentor);
+    if (ult) ult.focus();
+  });
+  $("#btn-adicionar").addEventListener("click", () => adicionarLinha(true));
+
+  /* ---------- Validação ---------- */
+  function validar() {
+    const ini = $("#inicio"), fim = $("#fim"), tmin = $("#tmin");
+    fim.setCustomValidity("");
+    if (ini.value && fim.value && !(minutosEntre(ini.value, fim.value) > 0)) {
+      fim.setCustomValidity("O fim tem de ser posterior ao início.");
+    }
+    tmin.setCustomValidity("");
+    const a = numero(tmin.value), b = numero($("#tmax").value);
+    if (!isNaN(a) && !isNaN(b) && a > b) tmin.setCustomValidity("A mínima não pode ser superior à máxima.");
+    form.classList.add("tentou");
+    return form.reportValidity();
+  }
+
+  /* ---------- Recolha e resumo ---------- */
+  function recolher() {
+    const v = id => $("#" + id).value.trim();
+    const causa = $("#causa").value === "__outra" ? "Outra: " + v("causa-outra") : $("#causa").value;
+    return {
+      unidade: v("unidade"), nome: v("nome"), telefone: v("telefone"),
+      equipamento: v("equipamento"), sensor: v("sensor"),
+      tipo: ($('input[name="tipo"]:checked') || {}).value || "",
+      inicio: $("#inicio").value, fim: $("#fim").value,
+      duracao: v("duracao"),
+      tmin: numero($("#tmin").value), tmax: numero($("#tmax").value),
+      causa: causa, descricao: v("descricao"),
+      quarentena: ($('input[name="quarentena"]:checked') || {}).value || "",
+      observacoes: v("observacoes"),
+      vacinas: $$(".vac-row", contentor).map(r => {
+        const sel = $(".v-prod", r);
+        const outro = sel.value === "__outro";
+        return {
+          nome: outro ? $(".v-outro", r).value.trim() + " (outro produto)" : sel.value,
+          lote: $(".v-lote", r).value.trim(),
+          validade: $(".v-val", r).value.trim(),
+          doses: $(".v-doses", r).value.trim(),
+          quebras: $(".v-queb", r).value
+        };
+      })
+    };
+  }
+
+  const S = {
+    wrap: "font-family:Segoe UI,Arial,sans-serif;font-size:14px;line-height:1.45;color:#16242E",
+    alerta: "margin:0 0 14px;padding:8px 12px;background:#E3ECF8;border-left:4px solid #2359A8;color:#1B4585;font-weight:bold",
+    titulo: "margin:0;font-size:18px;font-weight:bold",
+    meta: "margin:2px 0 16px;color:#53646F",
+    h: "margin:18px 0 6px;font-size:15px;font-weight:bold",
+    tab: "border-collapse:collapse;width:100%;max-width:680px;font-size:14px",
+    k: "border:1px solid #D3DDE2;background:#EEF3F5;padding:6px 10px;width:200px;vertical-align:top",
+    v: "border:1px solid #D3DDE2;padding:6px 10px;vertical-align:top",
+    th: "border:1px solid #D3DDE2;background:#EEF3F5;padding:6px 10px;text-align:left;font-weight:bold",
+    fim: "margin:18px 0 0;color:#53646F;font-size:13px"
+  };
+
+  function construirResumo(d) {
+    const agora = new Date();
+    const ref = `NRF-${agora.getFullYear()}${p2(agora.getMonth() + 1)}${p2(agora.getDate())}-${p2(agora.getHours())}${p2(agora.getMinutes())}`;
+    const preparada = `${p2(agora.getDate())}/${p2(agora.getMonth() + 1)}/${agora.getFullYear()} ${p2(agora.getHours())}:${p2(agora.getMinutes())}`;
+    const congelacao = !isNaN(d.tmin) && d.tmin <= CONFIG.limiarCongelacao;
+    const temp = n => isNaN(n) ? "Sem registo" : fmtTemp(n);
+    const dur = d.duracao ? d.duracao.replace(":", " h ") + " min" : "Sem registo";
+    const assunto = `${congelacao ? "[CONGELAÇÃO] " : ""}[Rede de Frio] ${d.unidade} – ${fmtDataHora(d.inicio).slice(0, 10)} – ${ref}`;
+
+    const ident = [
+      ["Unidade", d.unidade], ["Notificado por", d.nome], ["Contacto", d.telefone],
+      ["Equipamento", d.equipamento], ["Sensor ViGIE", d.sensor || "—"]
+    ];
+    const inc = [
+      ["Tipo", d.tipo], ["Início", fmtDataHora(d.inicio)], ["Fim", fmtDataHora(d.fim)],
+      ["Duração fora de 2–8 °C", dur], ["Temperatura mínima", temp(d.tmin)], ["Temperatura máxima", temp(d.tmax)],
+      ["Causa provável", d.causa],
+      ["Quarentena a 2–8 °C", d.quarentena, d.quarentena === "Não" ? "color:#B42318;font-weight:bold;" : ""],
+      ["Descrição", d.descricao]
+    ];
+    const tabela = linhas => `<table cellpadding="0" cellspacing="0" style="${S.tab}">` +
+      linhas.map(([k, v, extra]) => `<tr><td style="${S.k}">${esc(k)}</td><td style="${S.v}${extra || ""}">${br(esc(v))}</td></tr>`).join("") +
+      "</table>";
+    const cab = ["N.º", "Vacina", "Lote", "Validade", "Doses", "Quebras anteriores"];
+    const tabVac = `<table cellpadding="0" cellspacing="0" style="${S.tab}"><tr>` +
+      cab.map(h => `<th style="${S.th}">${h}</th>`).join("") + "</tr>" +
+      d.vacinas.map((x, i) => "<tr>" + [i + 1, x.nome, x.lote, x.validade, x.doses, x.quebras]
+        .map(c => `<td style="${S.v}">${esc(c)}</td>`).join("") + "</tr>").join("") +
+      "</table>";
+
+    const html = `<div style="${S.wrap}">` +
+      (congelacao ? `<p style="${S.alerta}">Temperatura mínima igual ou inferior a ${fmtTemp(CONFIG.limiarCongelacao)}</p>` : "") +
+      `<p style="${S.titulo}">Notificação de incidente da rede de frio</p>` +
+      `<p style="${S.meta}">Referência ${ref}, preparada em ${preparada}</p>` +
+      `<p style="${S.h}">Identificação</p>` + tabela(ident) +
+      `<p style="${S.h}">Incidente</p>` + tabela(inc) +
+      `<p style="${S.h}">Vacinas envolvidas</p>` + tabVac +
+      `<p style="${S.h}">Observações</p><p style="margin:0">${d.observacoes ? br(esc(d.observacoes)) : "—"}</p>` +
+      `<p style="${S.fim}">Fim do resumo.</p></div>`;
+
+    const L = [];
+    if (congelacao) L.push(`ATENÇÃO: temperatura mínima igual ou inferior a ${fmtTemp(CONFIG.limiarCongelacao)}`, "");
+    L.push("Notificação de incidente da rede de frio", `Referência ${ref}, preparada em ${preparada}`, "");
+    L.push("Identificação", "-------------"); ident.forEach(([k, v]) => L.push(`${k}: ${v}`)); L.push("");
+    L.push("Incidente", "---------"); inc.forEach(([k, v]) => L.push(`${k}: ${v}`)); L.push("");
+    L.push("Vacinas envolvidas", "------------------");
+    d.vacinas.forEach((x, i) => L.push(`${i + 1}. ${x.nome} | Lote ${x.lote} | Validade ${x.validade} | ${x.doses} doses | Quebras anteriores: ${x.quebras}`));
+    L.push("", "Observações", "-----------", d.observacoes || "—", "", "Fim do resumo.");
+
+    return {
+      ref, assunto, html, texto: L.join("\r\n"),
+      corpoMailto: `Segue a notificação de incidente da rede de frio, referência ${ref}.\r\n\r\n`
+    };
+  }
+
+  /* ---------- Copiar e abrir e-mail ---------- */
+  async function copiarResumo(r) {
+    try {
+      if (navigator.clipboard && window.ClipboardItem) {
+        await navigator.clipboard.write([new ClipboardItem({
+          "text/html": new Blob([r.html], { type: "text/html" }),
+          "text/plain": new Blob([r.texto], { type: "text/plain" })
+        })]);
+        return true;
+      }
+    } catch (e) { /* segue para a alternativa */ }
+    try {
+      const el = $("#preview");
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      const sel = window.getSelection();
+      sel.removeAllRanges(); sel.addRange(range);
+      const ok = document.execCommand("copy");
+      sel.removeAllRanges();
+      return ok;
+    } catch (e) { return false; }
+  }
+
+  async function copiarTexto(t) {
+    try { await navigator.clipboard.writeText(t); return true; } catch (e) { /* alternativa */ }
+    try {
+      const ta = document.createElement("textarea");
+      ta.value = t; ta.setAttribute("readonly", ""); ta.style.position = "fixed"; ta.style.opacity = "0";
+      document.body.appendChild(ta); ta.select();
+      const ok = document.execCommand("copy");
+      ta.remove();
+      return ok;
+    } catch (e) { return false; }
+  }
+
+  function abrirEmail(r) {
+    suprimirSaida = true;
+    let href = "mailto:" + CONFIG.emailDestino.replace(/\s/g, "") +
+      "?subject=" + encodeURIComponent(r.assunto) +
+      "&body=" + encodeURIComponent(r.corpoMailto);
+    if (CONFIG.emailCc) href += "&cc=" + CONFIG.emailCc.replace(/\s/g, "");
+    const a = document.createElement("a");
+    a.href = href; a.style.display = "none";
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => { suprimirSaida = false; }, 2000);
+  }
+
+  function estado(msg, falha) {
+    const e = $("#estado");
+    e.textContent = msg;
+    e.classList.toggle("falha", !!falha);
+  }
+
+  function marcarCopia(ok) {
+    const li = $("#passo-copia");
+    li.textContent = ok ? "O resumo foi copiado." : "Copie o resumo com o botão «Copiar resumo».";
+    li.classList.toggle("feito", ok);
+    if (!ok) estado("Não foi possível copiar automaticamente. Use o botão «Copiar resumo» ou selecione a pré-visualização e copie (Ctrl+C).", true);
+    else estado("");
+  }
+
+  function mostrarResultado(r) {
+    $("#preview").innerHTML = r.html;
+    $("#res-email").textContent = CONFIG.emailDestino;
+    $("#res-assunto").textContent = r.assunto;
+    const sec = $("#resultado");
+    sec.hidden = false;
+    sec.focus({ preventScroll: true });
+    sec.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  /* ---------- Eventos ---------- */
+  form.addEventListener("submit", async e => {
+    e.preventDefault();
+    if (!validar()) return;
+    ultimo = construirResumo(recolher());
+    mostrarResultado(ultimo);
+    const ok = await copiarResumo(ultimo);
+    marcarCopia(ok);
+    abrirEmail(ultimo);
+    sujo = false;
+  });
+
+  $("#btn-copiar").addEventListener("click", async () => {
+    if (!ultimo) return;
+    const ok = await copiarResumo(ultimo);
+    marcarCopia(ok);
+    if (ok) estado("Resumo copiado.");
+  });
+  $("#btn-abrir").addEventListener("click", () => { if (ultimo) abrirEmail(ultimo); });
+  $("#btn-assunto").addEventListener("click", async () => {
+    if (!ultimo) return;
+    const ok = await copiarTexto(ultimo.assunto);
+    estado(ok ? "Assunto copiado." : "Não foi possível copiar o assunto.", !ok);
+  });
+  $("#btn-nova").addEventListener("click", () => {
+    if (!confirm("Limpar todos os dados e começar uma nova notificação?")) return;
+    form.reset();
+    form.classList.remove("tentou");
+    contentor.innerHTML = "";
+    adicionarLinha(false);
+    $("#duracao").dataset.manual = "";
+    aplicarTipo(); aplicarCausa(); aplicarQuarentena(); atualizarEscala();
+    $("#resultado").hidden = true;
+    ultimo = null; sujo = false;
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  });
+
+  $("#inicio").addEventListener("input", autoDuracao);
+  $("#fim").addEventListener("input", autoDuracao);
+  $("#duracao").addEventListener("input", e => {
+    e.target.dataset.manual = e.target.value ? "1" : "";
+    if (!e.target.value) autoDuracao();
+  });
+  $("#tmin").addEventListener("input", atualizarEscala);
+  window.addEventListener("resize", atualizarEscala);
+  $("#tmax").addEventListener("input", atualizarEscala);
+  $$('input[name="tipo"]').forEach(r => r.addEventListener("change", aplicarTipo));
+  $$('input[name="quarentena"]').forEach(r => r.addEventListener("change", aplicarQuarentena));
+  $("#causa").addEventListener("change", aplicarCausa);
+
+  form.addEventListener("input", () => { sujo = true; });
+  window.addEventListener("beforeunload", e => {
+    if (sujo && !suprimirSaida) { e.preventDefault(); e.returnValue = ""; }
+  });
+
+  /* ---------- Arranque ---------- */
+  montarEscala();
+  adicionarLinha(false);
+  aplicarTipo();
+  atualizarEscala();
+})();
+</script>
+</body>
+</html>
